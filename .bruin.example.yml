@@ -1,0 +1,16 @@
+# Copy this file to `.bruin.yml` (which is git-ignored) and fill in your own paths.
+# `.bruin.yml` holds credentials, so it must never be committed.
+default_environment: default
+environments:
+    default:
+        connections:
+            # BigQuery destination for both pipelines.
+            google_cloud_platform:
+                - name: gcp-default
+                  project_id: id
+                  service_account_file: key.json
+            # Google Sheets source for the votes pipeline (the Google Form responses sheet).
+            # The service account email must be granted read access to that sheet.
+            google_sheets:
+                - name: gsheet-default
+                  service_account_file: key.json

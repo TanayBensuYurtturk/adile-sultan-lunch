@@ -1,0 +1,18 @@
+name: lunch.votes
+type: ingestr
+
+description: |
+  Team lunch votes, read from the Google Form responses spreadsheet and loaded into BigQuery.
+  The Google Form is created each day by the "menus -> Google Form" bot (see bot1-google-form.md).
+  Each row is one person's submission: their identity plus the menu and options they picked.
+
+  SETUP: replace REPLACE_WITH_SPREADSHEET_ID below with the id of the Form's responses sheet
+  (the long id in its URL: docs.google.com/spreadsheets/d/<ID>/edit). The service account in the
+  google_sheets connection must have read access to that sheet. The responses tab is usually
+  "Form Responses 1" (English UI) or "Form Yanıtları 1" (Turkish UI). Adjust the suffix to match.
+
+parameters:
+  source_connection: gsheet-default
+  source_table: "REPLACE_WITH_SPREADSHEET_ID.Form Responses 1"
+  destination: bigquery
+  destination_table: lunch.votes

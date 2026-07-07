@@ -1,0 +1,9 @@
+name: adile-sultan-votes
+# Runs in the evening to load the day's Google Form responses into BigQuery.
+schedule: "0 18 * * *"
+start_date: "2026-07-07"
+catchup: false
+
+default_connections:
+    google_cloud_platform: gcp-default
+    google_sheets: gsheet-default

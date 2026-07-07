@@ -1,0 +1,20 @@
+# Bruin local connection config — contains credential paths, never commit
+.bruin.yml
+
+# Python / uv
+__pycache__/
+*.pyc
+.venv/
+.uv/
+
+# OS
+.DS_Store
+
+# Bruin run artifacts
+logs/
+.bruin/
+
+logs/runs
+logs/*.log
+*.py[cod]
+logs/queries
