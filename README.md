@@ -1,73 +1,65 @@
 # adile-sultan-lunch
 
-Bruin data pipelines for the team's daily lunch order from **Adile Sultan Ev Yemekleri**
+Bruin + two bots for the team's daily lunch order from **Adile Sultan Ev Yemekleri**
 (`siparis.adilesultanevyemekleri.com`).
 
-Two pipelines feed BigQuery (`bruin-playground-bensu`), and two bots (created separately) sit on
-top of them: one turns the scraped menu into a Google Form, the other reads the votes.
+Bruin scrapes the menu and owns the tables; two bots (created separately, specced in the `bot*.md`
+files) compose the daily menus, run the Google Form vote, and tally the result.
 
 ```
-                09:00 scrape + compose                    bot 1
-┌──────────┐   ┌─────────────┐   ┌────────────────────┐   ┌─────────────┐
-│  menus/  │──▶│ lunch.menus │──▶│ lunch.daily_options│──▶│ Google Form │
-│(scraper) │   │ (all opts)  │   │ (curated menus)    │   └──────┬──────┘
-└──────────┘   └─────────────┘   └────────────────────┘          │ team votes
-                                                                  ▼
-┌──────────┐   18:00   ┌─────────────┐                     ┌─────────────┐
-│  votes/  │◀──────────│ lunch.votes │◀────────────────────│ Form → Sheet│
-│(ingestr) │  loads    │ (BigQuery)  │  ingestr            └─────────────┘
-└──────────┘           └─────────────┘
+        09:00 scrape                     bot 1: compose + form                bot 2: collect
+┌──────────┐   ┌─────────────┐   ┌─────────────┐   ┌──────────────┐   ┌──────────────────────────┐
+│  menus/  │──▶│ lunch.menus │──▶│ Google Form │   │ lunch.votes  │   │ latest row → responses,  │
+│(scraper) │   │(free opts)  │   │ (per type)  │──▶│ row: link,   │──▶│ tally, summary written   │
+└──────────┘   └─────────────┘   └──────┬──────┘   │ created_at,  │   │ back into the SAME row   │
+                                        │ votes     │ menus        │   └──────────────────────────┘
+                                        ▼           └──────────────┘
+                                   team fills form
 ```
 
-The team picks **one complete menu** (dishes are pre-selected by the pipeline), not individual options.
+The team picks **one complete menu** (bot 1 pre-selects the dishes), not individual options.
 
 ## Pipelines
 
-### `menus/` — daily scrape + compose (runs 09:00)
-Two assets:
+### `menus/` — daily scraper (runs 09:00)
+**`menus/assets/menus.py`** (Python) scrapes the 7 daily menus and **every free selectable option**
+inside each (main dish, side, promo add-ons) into **`lunch.menus`**, one row per option.
+Paid/surcharge options and bread are excluded. The site is server-rendered, so no browser or login
+is needed. Menus not offered today are recorded with `is_available = false`.
+- Strategy: `delete+insert` on `menu_date` (re-running a day replaces that day, history kept)
+- Quality checks: `menu_date`/`menu_id`/`menu_slug` not-null, `menu_slug` accepted-values
 
-1. **`menus/assets/menus.py`** (Python) — scrapes the 7 daily menus and **every free selectable
-   option inside each** (main dish, side, promo add-ons) into **`lunch.menus`**, one row per option.
-   Paid/surcharge options and bread are excluded. The site is server-rendered, so no browser or
-   login is needed. Menus not offered today are recorded with `is_available = false`.
-   - Strategy: `delete+insert` on `menu_date` (re-running a day replaces that day, history kept)
-   - Quality checks: `menu_date`/`menu_id`/`menu_slug` not-null, `menu_slug` accepted-values
+### `votes/` — table owner (schema only)
+**`votes/assets/votes.sql`** runs `CREATE TABLE IF NOT EXISTS lunch.votes (...)` — it just guarantees
+the bot-managed `lunch.votes` table exists with the right schema. It never writes rows (the bots do)
+and is idempotent, so re-running never wipes data. Columns: `created_at`, `menu_date`, `link`,
+`form_id`, `menus` (JSON), `responses` (JSON), `tally` (JSON), `summary`, `updated_at`.
 
-2. **`menus/assets/daily_options.sql`** (BigQuery SQL, depends on `lunch.menus`) — composes one
-   **complete, ready-to-eat menu per style** (Chicken, Meat, Vegetarian, Light/Fit, Rice Bowl,
-   Chef's Choice, Meat & Veggie) by picking an on-theme main + a real side + bread from the raw
-   options, into **`lunch.daily_options`**. This is the short list the team votes on. The category
-   keyword rules are in the SQL and easy to tweak.
-
-### `votes/` — Google Form responses → BigQuery (runs 18:00)
-An `ingestr` asset that loads the Google Form responses sheet into **`lunch.votes`**.
-
-- Asset: `votes/assets/votes.asset.yml` → table `lunch.votes`
-- **Setup:** put the responses spreadsheet id in `source_table` (see the file's comments), and share
-  the sheet with the service account email.
-
-## The bots
-- **`bot1-google-form.md`** — spec for the bot that reads `lunch.daily_options` and builds the daily
-  Google Form (one question: pick a menu).
-- (Bot 2 — reads `lunch.votes` to summarize/place the order — TBD.)
+## The bots (specs)
+- **`bot1-google-form.md`** — reads `lunch.menus`, **randomly composes one menu per type**, creates a
+  Google Form, and INSERTs a `lunch.votes` row with the form `link` + `created_at` + `menus`.
+- **`bot2-collect-responses.md`** — reads the **latest** `lunch.votes` row, fetches that form's
+  responses, writes them back into the **same row** (`responses`/`tally`/`summary`), and posts a
+  menus-and-votes result.
 
 ## Setup
 
 1. **Credentials:** copy `.bruin.example.yml` → `.bruin.yml` (git-ignored) and set the paths.
-   Both connections use the BigQuery service-account key:
+   The connection uses the BigQuery service-account key:
    `/Users/tanaybensu/Desktop/files/keys/bqbensukey.json`.
 2. **Validate:** `bruin validate .`
-3. **Run the menus pipeline** (scrape + compose): `bruin run ./menus`
-4. **Inspect the composed menus:**
+3. **Scrape today's menu:** `bruin run ./menus`
+4. **Create the votes table (once):** `bruin run ./votes`
+5. **Inspect the scraped options:**
    ```bash
    bruin query --connection gcp-default \
-     --query "SELECT choice_index, label, total_price FROM lunch.daily_options ORDER BY choice_index"
+     --query "SELECT menu_name, COUNT(option_id) free_opts FROM lunch.menus \
+              WHERE menu_date = CURRENT_DATE() AND group_name='Ana Yemek Seçimi' GROUP BY 1"
    ```
-5. **Votes:** once the Google Form + responses sheet exist, fill in `votes/assets/votes.asset.yml`
-   and run `bruin run ./votes`.
+6. **Hook up the bots** using `bot1-google-form.md` and `bot2-collect-responses.md`.
 
 ## Notes
-- Destination: `bigquery://project`, dataset `lunch`.
-- Schedules are cron in each `pipeline.yml` (menus `0 9 * * *`, votes `0 18 * * *`); the orchestrator
-  honors them.
+- Destination: `bigquery://bruin-playground-bensu`, dataset `lunch`.
+- `menus` runs at `0 9 * * *`; `votes` (schema) runs `daily`. The bots run on their own triggers
+  (bot 1 after the scrape, bot 2 in the evening).
 - `.bruin.yml` is git-ignored because it contains credential paths — never commit it.

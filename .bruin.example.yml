@@ -4,13 +4,8 @@ default_environment: default
 environments:
     default:
         connections:
-            # BigQuery destination for both pipelines.
+            # BigQuery — destination for the scraper and home of the bot-managed lunch.votes table.
             google_cloud_platform:
                 - name: gcp-default
                   project_id: id
-                  service_account_file: key.json
-            # Google Sheets source for the votes pipeline (the Google Form responses sheet).
-            # The service account email must be granted read access to that sheet.
-            google_sheets:
-                - name: gsheet-default
                   service_account_file: key.json
