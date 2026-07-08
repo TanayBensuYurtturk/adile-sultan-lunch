@@ -1,55 +1,47 @@
 # Bot 1 — "Menüler → Google Form" builder
 
-**Goal:** every morning, after the `adile-sultan-menus` pipeline has refreshed `lunch.menus`
-in BigQuery, read today's available menus and their selectable options and build a **Google Form**
-the team fills in to vote for their lunch. The form's responses feed the `adile-sultan-votes`
-pipeline (`lunch.votes`).
+**Goal:** every morning, after the `adile-sultan-menus` pipeline has composed the day's menus into
+`lunch.daily_options` in BigQuery, build a **Google Form** where each teammate picks **one complete
+menu** (not individual dishes) and post the link to the team. The form's responses feed the
+`adile-sultan-votes` pipeline (`lunch.votes`).
 
-This file is the instruction spec you hand to the Bruin bot. English comments throughout.
+The team only chooses a **menu**. The pipeline has already selected the dishes inside each menu
+(main + side + bread), so the form is a single, simple question. This file is the instruction spec
+you hand to the Bruin bot.
 
 ---
 
 ## 1. Input — read from BigQuery
 
-Connection: `gcp-default` (project `bruin-playground-bensu`). Read only today's menus that are
-actually on offer:
+Connection: `gcp-default` (project `bruin-playground-bensu`). Read the composed menus for the day:
 
 ```sql
 SELECT
-  menu_id,
-  menu_slug,
-  menu_name,
-  menu_base_price,
-  group_index,
-  group_name,          -- e.g. "Ana Yemek Seçimi", "Yan Ürün Seçimi", "Ekmek Seçimi"
-  group_rule,          -- e.g. "(1 Adet seçiniz)"
-  group_choose,        -- how many options must be picked from this group
-  group_required,      -- TRUE = mandatory pick
-  option_id,           -- stable id, use as the vote value
-  option_name,         -- human label shown in the form
-  option_type,         -- "radio" (single) or "checkbox" (multi)
-  option_extra_price   -- extra TRY added by this option (0 if included)
-FROM `bruin-playground-bensu.lunch.menus`
-WHERE menu_date = CURRENT_DATE()
-  AND is_available = TRUE
-ORDER BY menu_name, group_index, option_name;
+  choice_index,   -- 1-based display order
+  emoji,          -- e.g. 🍗 🥩 🥬 🥗
+  category,       -- Chicken, Meat, Vegetarian, Light / Fit, Rice Bowl, Chef's Choice, ...
+  menu_name,      -- restaurant menu this came from
+  main_dish,      -- pre-selected main
+  side_dish,      -- pre-selected side
+  total_price,    -- TRY (menu base price)
+  label           -- ready-made display string, e.g. "🍗 Chicken — ... + Arpa Şehriye Pilavı"
+FROM `bruin-playground-bensu.lunch.daily_options`
+ORDER BY choice_index;
 ```
 
-### `lunch.menus` shape (one row per selectable option)
+Typically 5–7 rows, one per style. Example output:
 
-| column | meaning |
-|---|---|
-| `menu_date` | scrape date (today) |
-| `menu_id` / `menu_slug` / `menu_name` | the menu (e.g. `43808` / `online-ozel-menu` / `Online Özel Menü`) |
-| `menu_base_price` | base price of the menu in TRY |
-| `is_available` | whether the menu is offered today — **filter on TRUE** |
-| `group_index` / `group_name` / `group_rule` | the option group inside the menu |
-| `group_choose` / `group_required` | how many to pick / whether mandatory |
-| `option_id` / `option_name` / `option_type` / `option_extra_price` | the individual choice |
+| choice_index | label | total_price |
+|---|---|---|
+| 1 | 👨‍🍳 Chef's Choice — Etli Yaprak Sarma + Karışık Turşu | 275 |
+| 2 | 🍗 Chicken — Özel Soslu Tavuk ve Penne Makarna + Arpa Şehriye Pilavı | 345 |
+| 3 | 🥗 Light / Fit — Buharda Karışık Sebze + … | 325 |
+| 4 | 🥩 Meat — Beğendili Mangalda Köfte + Arpa Şehriye Pilavı | 455 |
+| 5 | 🍚 Rice Bowl — Pilav Üstü Kuru Fasulye + Arpa Şehriye Pilavı | 245 |
+| 6 | 🥬 Vegetarian — Bezelye + Arpa Şehriye Pilavı | 325 |
 
-There are typically 6 available menus per day, each with 8 groups. The mandatory groups are
-**`Ana Yemek Seçimi`**, **`Yan Ürün Seçimi`** and **`Ekmek Seçimi`** (`group_required = TRUE`).
-The `Promosyon *` groups (drinks, soups, desserts, sides) are optional add-ons.
+> The full dish-by-dish menu with all raw options still lives in `lunch.menus` if you ever want to
+> build a more detailed form; `lunch.daily_options` is the curated short list for voting.
 
 ---
 
@@ -61,21 +53,14 @@ Build one form per day, titled e.g. `Öğle Yemeği — {CURRENT_DATE}`.
 - Turn on **Collect email addresses** (→ `Email Address` column), and
 - Add a required short-answer question **"İsim / Name"**.
 
-**Menu choice + branching:**
-1. Add a required multiple-choice question **"Menü seçimi / Which menu?"** listing the available
-   `menu_name` values. Use *go-to-section-based-on-answer* so each choice jumps to that menu's section.
-2. For each available menu, create a **section** containing one question per **required** group
-   (`group_required = TRUE`), in `group_index` order:
-   - `option_type = radio` / `group_choose = 1` → a required **multiple-choice** question.
-   - `option_type = checkbox` → a **checkboxes** question (allow multiple).
-   - Question title: prefix with the menu so response columns stay unambiguous, e.g.
-     `[Etli Yemek Menü] Ana Yemek Seçimi`.
-   - Options = that group's `option_name` list. If `option_extra_price > 0`, append ` (+{price}₺)`
-     to the label so people see the surcharge.
-   - Optionally add the `Promosyon *` groups as **optional** questions in the same section.
+**The menu question (single, required):**
+- One **multiple-choice** question: **"Bugünün menüsü / Today's menu"**.
+- One choice per row from `lunch.daily_options`, using `label` as the choice text (it already
+  includes emoji, category, main and side). Optionally append ` — {total_price}₺`.
+- Keep the choices in `choice_index` order.
+- No branching, no sub-questions — the dishes are already decided.
 
-**Store the vote value as `option_id`** where possible (or keep a mapping), so `lunch.votes` can be
-joined back to `lunch.menus` unambiguously.
+That's it: email + name + one menu pick.
 
 ---
 
@@ -86,15 +71,15 @@ joined back to `lunch.menus` unambiguously.
   (read access is enough).
 - Put the spreadsheet id into `votes/assets/votes.asset.yml` (`source_table`). The responses tab is
   usually `Form Responses 1` (or `Form Yanıtları 1` in a Turkish UI).
-- Each response row becomes one row in `lunch.votes`: `Timestamp`, `Email Address`, `İsim`,
-  `Menü seçimi`, and the per-menu group answers. The `adile-sultan-votes` pipeline loads it as-is;
-  normalization (who → which menu → which options) happens downstream.
+- Each response becomes one row in `lunch.votes`: `Timestamp`, `Email Address`, `İsim`, and the
+  chosen menu `label`. Because the choice text matches `lunch.daily_options.label`, you can join
+  votes back to the exact menu (and its `main_option_id` / `side_option_id`) for placing the order.
 
 ---
 
 ## 4. Daily order of operations
 
-1. `adile-sultan-menus` runs at **09:00** → refreshes `lunch.menus`.
-2. **This bot** reads `lunch.menus` → builds today's Google Form → posts the link to the team.
-3. Team votes during the day.
+1. `adile-sultan-menus` runs at **09:00** → refreshes `lunch.menus`, then composes `lunch.daily_options`.
+2. **This bot** reads `lunch.daily_options` → builds today's Google Form → posts the link to the team.
+3. Team votes during the day (one menu each).
 4. `adile-sultan-votes` runs at **18:00** → loads the responses sheet into `lunch.votes`.
