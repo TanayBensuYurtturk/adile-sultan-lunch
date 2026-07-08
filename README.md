@@ -36,11 +36,13 @@ and is idempotent, so re-running never wipes data. Columns: `created_at`, `menu_
 `form_id`, `menus` (JSON), `responses` (JSON), `tally` (JSON), `summary`, `updated_at`.
 
 ## The bots (specs)
-- **`bot1-google-form.md`** — reads `lunch.menus`, **randomly composes one menu per type**, creates a
-  Google Form, and INSERTs a `lunch.votes` row with the form `link` + `created_at` + `menus`.
-- **`bot2-collect-responses.md`** — reads the **latest** `lunch.votes` row, fetches that form's
-  responses, writes them back into the **same row** (`responses`/`tally`/`summary`), and posts a
-  menus-and-votes result.
+- **`bot1-google-form.md`** — reads `lunch.menus`, **randomly composes one menu per type** (marks the
+  general menu, Chef's Choice, as `default`), creates a Google Form, and INSERTs a `lunch.votes` row
+  with the form `link` + `created_at` + `menus`.
+- **`bot2-collect-responses.md`** — runs **11:30 each morning**: reads the **latest** `lunch.votes`
+  row, fetches that form's responses, writes them back into the **same row**
+  (`responses`/`tally`/`summary`), and posts a menus-and-votes result. If nobody voted, it defaults
+  the order to the general menu.
 
 ## Setup
 
@@ -61,5 +63,5 @@ and is idempotent, so re-running never wipes data. Columns: `created_at`, `menu_
 ## Notes
 - Destination: `bigquery://bruin-playground-bensu`, dataset `lunch`.
 - `menus` runs at `0 9 * * *`; `votes` (schema) runs `daily`. The bots run on their own triggers
-  (bot 1 after the scrape, bot 2 in the evening).
+  (bot 1 after the 09:00 scrape, bot 2 at 11:30 when voting closes).
 - `.bruin.yml` is git-ignored because it contains credential paths — never commit it.

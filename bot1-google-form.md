@@ -60,9 +60,16 @@ Because the picks are random, the featured combo changes day to day. Result: ~6�
 Keep each menu's `menu_slug`, `main` (name + option_id), and `side` (name + option_id) so votes can
 be tied back to real dishes later.
 
+**Mark the general menu as default:** flag the Chef's Choice (`online-ozel-menu`) entry with
+`"default": true`. This is the fallback bot 2 orders if nobody votes. (If `online-ozel-menu` isn't
+available that day, mark the first composed menu as default instead.)
+
 Example composed set:
 ```json
 [
+  {"type":"Chef's Choice","emoji":"👨‍🍳","menu_slug":"online-ozel-menu","default":true,
+   "main":"Etli Yaprak Sarma","side":"Karışık Turşu",
+   "label":"👨‍🍳 Chef's Choice — Etli Yaprak Sarma + Karışık Turşu"},
   {"type":"Chicken","emoji":"🍗","menu_slug":"tavuklu-yemek-menu",
    "main":"Mangalda Tavuk ve Pirinç Pilavı","side":"Arpa Şehriye Pilavı",
    "label":"🍗 Chicken — Mangalda Tavuk ve Pirinç Pilavı + Arpa Şehriye Pilavı"},
