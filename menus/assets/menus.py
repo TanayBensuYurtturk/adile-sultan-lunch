@@ -6,8 +6,9 @@ image: python:3.11
 connection: gcp-default
 
 description: |
-  Daily snapshot of Adile Sultan's lunch menus and every selectable option inside each menu.
-  Scrapes the public ordering site (siparis.adilesultanevyemekleri.com), which is server-rendered,
+  Daily snapshot of Adile Sultan's lunch menus and every selectable option inside each menu, for the
+  Kadıköy Fikirtepe branch (the branch is pinned in-session before scraping, since menus/availability
+  are branch-specific). Scrapes the public ordering site (siparis.adilesultanevyemekleri.com), which is server-rendered,
   so no browser/login is needed. Only FREE options are kept — any choice with an extra surcharge
   is skipped, and the bread group is excluded. One row per selectable option; menus that are not offered today
   (their product page 302-redirects to the homepage) are recorded as a single marker row with
@@ -96,6 +97,13 @@ from bs4 import BeautifulSoup
 BASE = "https://siparis.adilesultanevyemekleri.com"
 HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; adile-sultan-lunch-bot/1.0)"}
 
+# The menu (and daily availability) is branch-specific, so we pin the Kadıköy Fikirtepe branch
+# before scraping. The site resolves the branch from a region: İstanbul -> Kadıköy -> Fikirtepe Mah.
+# These ids come from the site's own region cascade and are stable.
+CITY_ID = 34          # İstanbul
+DISTRICT_ID = 22999   # Fikirtepe Mah. (Kadıköy) -> selects the Kadıköy Fikirtepe branch
+BRANCH_NAME = "Fikirtepe"  # sanity-check token expected on the landing page after selection
+
 # The 7 daily menus the team orders from. Slugs are stable on the ordering site.
 TARGET_SLUGS = [
     "online-ozel-menu",
@@ -124,11 +132,25 @@ def _to_float(txt):
         return None
 
 
-def _fetch(url):
-    """GET a URL; return (html, final_url) so we can detect redirects."""
-    r = requests.get(url, headers=HEADERS, timeout=30)
+def _fetch(session, url):
+    """GET a URL in the branch-pinned session; return (html, final_url) to detect redirects."""
+    r = session.get(url, timeout=30)
     r.raise_for_status()
     return r.text, r.url
+
+
+def _new_session():
+    """Open a session and pin the Kadıköy Fikirtepe branch, so all fetches see that branch's menu."""
+    s = requests.Session()
+    s.headers.update(HEADERS)
+    s.get(BASE, timeout=30)  # establish session cookies
+    s.post(
+        f"{BASE}/restPost",
+        data={"set_region": 1, "city_id": CITY_ID, "district_id": DISTRICT_ID},
+        headers={"X-Requested-With": "XMLHttpRequest", "Referer": f"{BASE}/branch"},
+        timeout=30,
+    )
+    return s
 
 
 def _parse_menu_cards(html):
@@ -197,7 +219,11 @@ def _parse_option_groups(html):
 def materialize():
     run_date = dt.date.today()
     scraped_at = dt.datetime.now(dt.timezone.utc)
-    landing_html, _ = _fetch(BASE)
+    session = _new_session()
+    landing_html, _ = _fetch(session, BASE)
+    # Fail loudly if the branch wasn't pinned, rather than silently scraping the wrong branch.
+    if BRANCH_NAME not in landing_html:
+        raise RuntimeError(f"Expected the {BRANCH_NAME} branch to be selected, but it was not.")
     cards = _parse_menu_cards(landing_html)
 
     rows = []
@@ -205,7 +231,7 @@ def materialize():
         card = cards.get(slug)
         if not card:
             continue
-        html, final_url = _fetch(f"{BASE}/product/{slug}")
+        html, final_url = _fetch(session, f"{BASE}/product/{slug}")
         # A menu not offered today 302-redirects to the homepage; detect via the final URL.
         available = f"/product/{slug}" in final_url
         groups = _parse_option_groups(html) if available else []
