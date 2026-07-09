@@ -143,8 +143,9 @@ VALUES (
 
 ## Step 4 — announce the menu (not a dry "Done.")
 
-Don't report a bland status line. Produce a friendly announcement with a heading and a **daily
-motivation** that changes each day. Structure:
+**Do not emit any internal/status text** — no "Inserted into lunch.votes…", no row counts, no
+"created table" messages. The only thing the bot outputs is the friendly announcement below: a
+heading plus a **daily motivation** line that changes each day.
 
 ```
 🍽️ Bugünün öğle menüsü seçenekleri — {date} 🍽️
@@ -155,7 +156,7 @@ motivation** that changes each day. Structure:
 3. 🥬 Vegetarian — Kuru Fasulye + Bulgur Pilavı (325₺ · ~500 kcal)
 ...
 
-Kendi seçimini yapmak istersen menü linkinden değiştirebilirsin 👉 {menu_url}
+Kendi seçimini yapmak istersen 👉 https://siparis.adilesultanevyemekleri.com
 ```
 
 Rotate the motivation so it feels fresh — pick one per day (e.g. by day-of-year, so it's stable for
