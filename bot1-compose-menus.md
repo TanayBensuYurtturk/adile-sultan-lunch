@@ -72,6 +72,9 @@ estimate calories for the dishes it actually picked:
   (Turkish queries hit local nutrition sites like fitbilgi / yemek.com / diyetkolik).
 - Take a representative **per-portion** kcal from the results; sum main + side → `approx_calories`
   (round to the nearest 10). It's an estimate, so keep the `~` in the label.
+- Keep the **source URL** of the calorie figures (the nutrition page you took the numbers from) as
+  `calorie_source` — it's shown as the calorie link in the announcement (Step 4). A single
+  representative source link for the day is enough.
 - Cache within the run so the same dish isn't searched twice; if a dish can't be found, fall back to
   a sensible number for its type (Light ~400, Vegetarian ~500, Chicken ~650, Chef's ~700,
   Meat & Veggie ~700, Rice Bowl ~750, Meat ~800) and move on — never block the poll on a lookup.
@@ -157,6 +160,7 @@ heading plus a **daily motivation** line that changes each day.
 ...
 
 Kendi seçimini yapmak istersen 👉 https://siparis.adilesultanevyemekleri.com
+Kalori bilgileri yaklaşıktır, kaynak 👉 {calorie_source}
 ```
 
 **No link preview:** when this is posted to Slack, disable the auto-preview card by setting
