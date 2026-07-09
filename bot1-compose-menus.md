@@ -159,6 +159,10 @@ heading plus a **daily motivation** line that changes each day.
 Kendi seçimini yapmak istersen 👉 https://siparis.adilesultanevyemekleri.com
 ```
 
+**No link preview:** when this is posted to Slack, disable the auto-preview card by setting
+`unfurl_links: false` and `unfurl_media: false` on the `chat.postMessage` call (optionally also wrap
+the url as `<https://siparis.adilesultanevyemekleri.com>`), so no thumbnail/preview appears under the link.
+
 Rotate the motivation so it feels fresh — pick one per day (e.g. by day-of-year, so it's stable for
 the day). A few examples (add your own):
 - "İyi bir öğün, iyi bir güne yakışır — afiyet olsun! 🌟"
