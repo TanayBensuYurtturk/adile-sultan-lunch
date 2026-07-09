@@ -33,6 +33,10 @@ with `is_available = false`.
 - Strategy: `delete+insert` on `menu_date` (re-running a day replaces that day, history kept)
 - Quality checks: `menu_date`/`menu_id`/`menu_slug` not-null, `menu_slug` accepted-values
 
+**`menus/assets/calories.sql`** (BigQuery SQL, depends on `lunch.menus`) derives an **approximate
+per-dish calorie** estimate into **`lunch.calories`** (keyword-based, since the site has no calorie
+data). Bot 1 reads this table so no runtime web lookups are needed.
+
 ### `votes/` — table owner (schema only)
 **`votes/assets/votes.sql`** runs `CREATE TABLE IF NOT EXISTS lunch.votes (...)` — it just guarantees
 the bot-managed `lunch.votes` table exists with the right schema. It never writes rows (the bots do)
