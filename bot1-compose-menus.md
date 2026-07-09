@@ -159,13 +159,17 @@ heading plus a **daily motivation** line that changes each day.
 3. 🥬 Vegetarian — Kuru Fasulye + Bulgur Pilavı (325₺ · ~500 kcal)
 ...
 
-Kendi seçimini yapmak istersen 👉 https://siparis.adilesultanevyemekleri.com
-Kalori bilgileri yaklaşıktır, kaynak 👉 {calorie_source}
+Kendi seçimini yapmak istersen 👉 <https://siparis.adilesultanevyemekleri.com|menüye git>
+Kalori bilgileri yaklaşıktır, kaynak 👉 <{calorie_source}|kaynak>
 ```
 
-**No link preview:** when this is posted to Slack, disable the auto-preview card by setting
-`unfurl_links: false` and `unfurl_media: false` on the `chat.postMessage` call (optionally also wrap
-the url as `<https://siparis.adilesultanevyemekleri.com>`), so no thumbnail/preview appears under the link.
+**No link preview (do BOTH):**
+1. On the `chat.postMessage` call set `unfurl_links: false` **and** `unfurl_media: false`.
+2. Never post a **bare** URL — a bare URL is what Slack turns into a preview card. Format every link
+   as a Slack markdown link `<url|label>` (e.g. `<https://siparis.adilesultanevyemekleri.com|menüye git>`).
+   A labeled link shows only the label text and does not unfurl.
+
+Doing only step 1 can still leak a preview; the `<url|label>` format in step 2 is what actually kills it.
 
 Rotate the motivation so it feels fresh — pick one per day (e.g. by day-of-year, so it's stable for
 the day). A few examples (add your own):

@@ -79,8 +79,9 @@ WHERE created_at = (SELECT MAX(created_at) FROM `bruin-playground-bensu.lunch.vo
 ## Step 4 — the result message
 
 Post a summary to the same Slack channel (`chat.postMessage`, optionally as a thread reply on
-`message_ts`). Disable the link preview card with `unfurl_links: false` and `unfurl_media: false` so
-no thumbnail appears under any URL. Example:
+`message_ts`). To avoid a link preview card, do BOTH: set `unfurl_links: false` and
+`unfurl_media: false`, **and** format any URL as a Slack markdown link `<url|label>` rather than a
+bare URL (a bare URL is what unfurls). Example:
 
 ```
 🍽️ Öğle Yemeği sonuçları — 2026-07-09  (12 oy)
