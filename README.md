@@ -39,9 +39,9 @@ and is idempotent, so re-running never wipes data. Columns: `created_at`, `menu_
 `message_ts`, `menus` (JSON), `responses` (JSON), `tally` (JSON), `summary`, `updated_at`.
 
 ## The bots (specs)
-- **`bot1-slack-poll.md`** — reads `lunch.menus`, **randomly composes one menu per type** (marks the
-  general menu, Chef's Choice, as `default`), posts a Slack message with a number reaction per menu,
-  and INSERTs a `lunch.votes` row with the Slack `channel_id`/`message_ts` + `created_at` + `menus`.
+- **`bot1-compose-menus.md`** — reads `lunch.menus`, **randomly composes one menu per type** (marks
+  the general menu, Chef's Choice, as `default`), and INSERTs the prepared menus into a `lunch.votes`
+  row (`created_at` + `menu_date` + `menus`).
 - **`bot2-collect-votes.md`** — runs **11:30 each morning**: reads the **latest** `lunch.votes` row,
   counts the Slack **reactions** on that message, writes them back into the **same row**
   (`responses`/`tally`/`summary`), and posts a menus-and-votes result. If nobody voted, it defaults
@@ -63,7 +63,7 @@ and is idempotent, so re-running never wipes data. Columns: `created_at`, `menu_
      --query "SELECT menu_name, COUNT(option_id) free_opts FROM lunch.menus \
               WHERE menu_date = CURRENT_DATE() AND group_name='Ana Yemek Seçimi' GROUP BY 1"
    ```
-6. **Hook up the bots** using `bot1-slack-poll.md` and `bot2-collect-votes.md`.
+6. **Hook up the bots** using `bot1-compose-menus.md` and `bot2-collect-votes.md`.
 
 ## Notes
 - Destination: `bigquery://bruin-playground-bensu`, dataset `lunch`.
