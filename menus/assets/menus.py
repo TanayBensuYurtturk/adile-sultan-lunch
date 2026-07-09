@@ -9,11 +9,11 @@ description: |
   Daily snapshot of Adile Sultan's lunch menus and every selectable option inside each menu, for the
   Kadıköy Fikirtepe branch (the branch is pinned in-session before scraping, since menus/availability
   are branch-specific). Scrapes the public ordering site (siparis.adilesultanevyemekleri.com), which is server-rendered,
-  so no browser/login is needed. Only FREE options are kept — any choice with an extra surcharge
-  is skipped, and the bread group is excluded. One row per selectable option; menus that are not offered today
+  so no browser/login is needed. All options are kept (free and paid), each with its extra price;
+  the bread group is excluded. One row per selectable option; menus that are not offered today
   (their product page 302-redirects to the homepage) are recorded as a single marker row with
-  is_available = false. Downstream, the Google Form bot reads this table (WHERE is_available)
-  to build the day's poll.
+  is_available = false. Downstream, the compose-menus bot reads this table (WHERE is_available)
+  to build the day's menu choices.
 
 materialization:
   type: table
@@ -54,6 +54,9 @@ columns:
   - name: menu_base_price
     type: float64
     description: "Base price of the menu in TRY."
+  - name: menu_url
+    type: string
+    description: "Link to the menu's product page, so users can open it and pick their own options."
   - name: is_available
     type: boolean
     description: "Whether the menu is offered today (has selectable options)."
@@ -81,6 +84,9 @@ columns:
   - name: option_type
     type: string
     description: "Input type: radio (single) or checkbox (multi)."
+  - name: option_extra_price
+    type: float64
+    description: "Extra surcharge this option adds, in TRY (0 = included/free)."
   - name: scraped_at
     type: timestamp
     description: "UTC timestamp of the scrape run."
@@ -192,18 +198,17 @@ def _parse_option_groups(html):
             inp = opt.find("input")
             if not inp:
                 continue
-            # RestApp exposes any surcharge as a plain number in data-price.
-            # Keep only free options, so skip anything priced above 0.
+            # RestApp exposes any surcharge as a plain number in data-price (0 = included/free).
             try:
-                if float(inp.get("data-price") or 0) > 0:
-                    continue
+                extra_price = float(inp.get("data-price") or 0)
             except ValueError:
-                pass
+                extra_price = 0.0
             desc = opt.select_one(".custom-control-description")
             options.append({
                 "option_id": inp.get("value"),
                 "option_name": desc.get_text(strip=True) if desc else "",
                 "option_type": inp.get("type", ""),
+                "option_extra_price": extra_price,
             })
         groups.append({
             "group_index": gi,
@@ -243,6 +248,7 @@ def materialize():
             "menu_name": card["name"],
             "menu_description": card["description"],
             "menu_base_price": card["base_price"],
+            "menu_url": f"{BASE}/product/{slug}",  # link so users can open and pick their own options
             "is_available": available and bool(groups),
             "scraped_at": scraped_at,
         }
@@ -258,6 +264,7 @@ def materialize():
                         "option_id": opt["option_id"],
                         "option_name": opt["option_name"],
                         "option_type": opt["option_type"],
+                        "option_extra_price": opt["option_extra_price"],
                     })
         else:
             # Record unavailable menus as a single marker row so the day is complete.
@@ -265,13 +272,14 @@ def materialize():
                 "group_index": None, "group_name": None, "group_rule": None,
                 "group_choose": None, "group_required": None,
                 "option_id": None, "option_name": None, "option_type": None,
+                "option_extra_price": None,
             })
 
     df = pd.DataFrame(rows)
     # Stable column order for the destination table.
     return df[[
         "menu_date", "menu_id", "menu_slug", "menu_name", "menu_description",
-        "menu_base_price", "is_available", "group_index", "group_name", "group_rule",
+        "menu_base_price", "menu_url", "is_available", "group_index", "group_name", "group_rule",
         "group_choose", "group_required", "option_id", "option_name", "option_type",
-        "scraped_at",
+        "option_extra_price", "scraped_at",
     ]]

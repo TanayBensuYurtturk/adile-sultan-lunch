@@ -90,7 +90,8 @@ Post a summary to the same Slack channel (`chat.postMessage`, optionally as a th
 Kazanan: 🍗 Chicken
 ```
 
-The winning menu's dishes (`main`/`side` + their `option_id`s from `menus`) are what you order. If
+The winning menu's dishes (`main`/`side` + their `option_id`s from `menus`), its `total_price`, and
+its `menu_url` are what you order — the url lets whoever places the order open the exact menu. If
 there were no votes, the winner is the general menu (👨‍🍳 Chef's Choice) by default. On a tie, prefer
 the default menu, otherwise the lowest index.
 

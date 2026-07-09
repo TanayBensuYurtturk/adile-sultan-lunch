@@ -23,12 +23,13 @@ The team picks **one complete menu** (bot 1 pre-selects the dishes) by tapping a
 ## Pipelines
 
 ### `menus/` — daily scraper (runs 09:00)
-**`menus/assets/menus.py`** (Python) scrapes the 7 daily menus and **every free selectable option**
+**`menus/assets/menus.py`** (Python) scrapes the 7 daily menus and **every selectable option**
 inside each (main dish, side, promo add-ons) into **`lunch.menus`**, one row per option, for the
 **Kadıköy Fikirtepe** branch (pinned in-session via the site's region cascade before scraping, since
-menus and availability are branch-specific). Paid/surcharge options and bread are excluded. The site
-is server-rendered, so no browser or login is needed. Menus not offered today are recorded with
-`is_available = false`.
+menus and availability are branch-specific). Both free and paid options are kept, each with its
+`option_extra_price`; each row also carries `menu_url` (the product-page link). Bread is excluded.
+The site is server-rendered, so no browser or login is needed. Menus not offered today are recorded
+with `is_available = false`.
 - Strategy: `delete+insert` on `menu_date` (re-running a day replaces that day, history kept)
 - Quality checks: `menu_date`/`menu_id`/`menu_slug` not-null, `menu_slug` accepted-values
 
