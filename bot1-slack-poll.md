@@ -110,7 +110,24 @@ Example composed set:
 
 ## Step 4 — write the poll to `lunch.votes`
 
-Insert one row (this is the only writer of `channel_id` / `message_ts` / `menus`):
+First make sure the table exists (idempotent — safe to run every day, and means the bot doesn't
+depend on the `votes` Bruin pipeline having run first):
+
+```sql
+CREATE TABLE IF NOT EXISTS `bruin-playground-bensu.lunch.votes` (
+  created_at TIMESTAMP,
+  menu_date  DATE,
+  channel_id STRING,
+  message_ts STRING,
+  menus      JSON,
+  responses  JSON,
+  tally      JSON,
+  summary    STRING,
+  updated_at TIMESTAMP
+);
+```
+
+Then insert one row (this is the only writer of `channel_id` / `message_ts` / `menus`):
 
 ```sql
 INSERT INTO `bruin-playground-bensu.lunch.votes`
