@@ -6,11 +6,13 @@ Every morning, after the `adile-sultan-menus` pipeline has refreshed `lunch.menu
 1. reads today's available menus and their options (free **and** paid, with prices) from BigQuery
    (Kadıköy Fikirtepe branch),
 2. **randomly composes one complete menu per menu type** (a random main + a random side), with the
-   total price, an approximate calorie estimate, and a link to the menu so people can customize,
+   total price, an approximate calorie estimate **looked up from the internet**, and a link to the
+   menu so people can customize,
 3. **prepares the result** — the day's menu choices, with the general menu (Chef's Choice) marked as
    the default — writes it into `lunch.votes`, and produces a friendly announcement.
 
-**Capabilities it needs:** BigQuery read + insert (connection `gcp-default`).
+**Capabilities it needs:** BigQuery read + insert (connection `gcp-default`), and web search access
+(to estimate dish calories).
 
 ---
 
@@ -36,18 +38,19 @@ Options include both free (`option_extra_price = 0`) and paid ones — the price
 the composed menu shows a real total.
 
 ### Menu types
-Map `menu_slug` to a friendly type, emoji, and an **approximate** calorie figure. Note: the site
-publishes no calorie data, so these are rough per-type estimates — label them with a `~`.
+Map `menu_slug` to a friendly type + emoji:
 
-| menu_slug | type | emoji | approx kcal |
-|---|---|---|---|
-| `tavuklu-yemek-menu` | Chicken | 🍗 | ~650 |
-| `etli-yemek-menu` | Meat | 🥩 | ~800 |
-| `etli-sebzeli-yemek-menu` | Meat & Veggie | 🥘 | ~700 |
-| `sebzeli-yemek-menu` | Vegetarian | 🥬 | ~500 |
-| `dusuk-kalorili-fit-menu` | Light / Fit | 🥗 | ~400 |
-| `pilav-ustu-menu` | Rice Bowl | 🍚 | ~750 |
-| `online-ozel-menu` | Chef's Choice | 👨‍🍳 | ~700 |
+| menu_slug | type | emoji |
+|---|---|---|
+| `tavuklu-yemek-menu` | Chicken | 🍗 |
+| `etli-yemek-menu` | Meat | 🥩 |
+| `etli-sebzeli-yemek-menu` | Meat & Veggie | 🥘 |
+| `sebzeli-yemek-menu` | Vegetarian | 🥬 |
+| `dusuk-kalorili-fit-menu` | Light / Fit | 🥗 |
+| `pilav-ustu-menu` | Rice Bowl | 🍚 |
+| `online-ozel-menu` | Chef's Choice | 👨‍🍳 |
+
+Calories are **not** on the site — the bot looks them up from the internet per dish (see Step 2).
 
 ---
 
@@ -57,10 +60,24 @@ For each available menu type:
 - pick **one random** option from `Ana Yemek Seçimi` → `main` (keep its `option_id`, `extra_price`)
 - pick **one random** option from `Yan Ürün Seçimi` → `side` (keep its `option_id`, `extra_price`)
 - `total_price = menu_base_price + main.extra_price + side.extra_price`
-- `approx_calories` = the estimate for that type from the table above
+- **look up `approx_calories` from the internet** for the chosen dishes (see below)
 - carry `menu_url` through so people can open the real menu and choose their own options
 - assign a 1-based `index` and build a label:
   `"{index}. {emoji} {type} — {main} + {side} ({total_price}₺ · ~{approx_calories} kcal)"`
+
+### Calorie lookup (from the internet)
+The ordering site has no calorie data, so for each composed menu the bot **searches the web** to
+estimate calories for the dishes it actually picked:
+- Run a web search per dish, e.g. `"{main} kaç kalori 1 porsiyon"` and `"{side} kaç kalori 1 porsiyon"`
+  (Turkish queries hit local nutrition sites like fitbilgi / yemek.com / diyetkolik).
+- Take a representative **per-portion** kcal from the results; sum main + side → `approx_calories`
+  (round to the nearest 10). It's an estimate, so keep the `~` in the label.
+- Cache within the run so the same dish isn't searched twice; if a dish can't be found, fall back to
+  a sensible number for its type (Light ~400, Vegetarian ~500, Chicken ~650, Chef's ~700,
+  Meat & Veggie ~700, Rice Bowl ~750, Meat ~800) and move on — never block the poll on a lookup.
+
+Because calories come from the real chosen dishes, the number changes with the random pick (grilled
+chicken + salad reads lighter than lamb tandır + rice).
 
 Because the picks are random, the featured combo changes day to day.
 Keep each menu's `menu_slug`, `main`/`side` (name + option_id) so votes tie back to real dishes.
