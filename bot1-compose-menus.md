@@ -81,7 +81,6 @@ depend on the `votes` Bruin pipeline having run first):
 CREATE TABLE IF NOT EXISTS `bruin-playground-bensu.lunch.votes` (
   created_at TIMESTAMP,
   menu_date  DATE,
-  channel_id STRING,
   message_ts STRING,
   menus      JSON,
   responses  JSON,

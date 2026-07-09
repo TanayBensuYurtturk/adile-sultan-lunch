@@ -35,8 +35,8 @@ is server-rendered, so no browser or login is needed. Menus not offered today ar
 ### `votes/` — table owner (schema only)
 **`votes/assets/votes.sql`** runs `CREATE TABLE IF NOT EXISTS lunch.votes (...)` — it just guarantees
 the bot-managed `lunch.votes` table exists with the right schema. It never writes rows (the bots do)
-and is idempotent, so re-running never wipes data. Columns: `created_at`, `menu_date`, `channel_id`,
-`message_ts`, `menus` (JSON), `responses` (JSON), `tally` (JSON), `summary`, `updated_at`.
+and is idempotent, so re-running never wipes data. Columns: `created_at`, `menu_date`, `message_ts`,
+`menus` (JSON), `responses` (JSON), `tally` (JSON), `summary`, `updated_at`.
 
 ## The bots (specs)
 - **`bot1-compose-menus.md`** — reads `lunch.menus`, **randomly composes one menu per type** (marks

@@ -15,15 +15,15 @@ It never creates rows — it only updates the row bot 1 created.
   the bot's own Slack integration. No token to manage here.
 - BigQuery read + update (connection `gcp-default`).
 
-**Config:** none of its own — it gets `channel_id` + `message_ts` straight from the `lunch.votes` row
-bot 1 wrote, so it reads reactions and posts the result directly, no lookup needed.
+**Config:** the channel is already known (`SLACK_CHANNEL_ID`); it gets `message_ts` straight from the
+latest `lunch.votes` row, so it reads that message's reactions and posts the result directly.
 
 ---
 
 ## Step 1 — find the latest poll
 
 ```sql
-SELECT created_at, menu_date, channel_id, message_ts, menus
+SELECT created_at, menu_date, message_ts, menus
 FROM `bruin-playground-bensu.lunch.votes`
 WHERE updated_at IS NULL            -- not collected yet (optional; drop to always take the latest)
 ORDER BY created_at DESC
@@ -37,7 +37,8 @@ number reaction back to a menu.
 
 ## Step 2 — read the reactions (the votes)
 
-Call `reactions.get` with `channel = channel_id` and `timestamp = message_ts`. For each keycap
+Call `reactions.get` with `channel = SLACK_CHANNEL_ID` (from config) and `timestamp = message_ts`
+(from the row). For each keycap
 reaction (`one`, `two`, `three`, …), Slack returns the emoji name and the list of `users` who added it.
 
 - Map emoji name → menu `index` (`one`→1, `two`→2, …) → the menu in `menus`.
@@ -97,8 +98,8 @@ the default menu, otherwise the lowest index.
 
 ## Daily order of operations (full picture)
 1. **09:00** — `adile-sultan-menus` refreshes `lunch.menus` (Kadıköy Fikirtepe, free options only).
-2. **Bot 1** — composes random menus by type → posts the Slack poll + number reactions → INSERTs a
-   `lunch.votes` row with `channel_id`/`message_ts`.
+2. **Bot 1** — composes random menus by type → INSERTs a `lunch.votes` row with the `menus`.
+   The menus get posted to Slack and the poll's `message_ts` is recorded on that row.
 3. Team votes in Slack by tapping a reaction (no link).
 4. **11:30 — Bot 2** — voting closes; reads the latest `lunch.votes` row → counts reactions →
    UPDATEs the same row with the tally → posts the result. No votes ⇒ default to the general menu.
