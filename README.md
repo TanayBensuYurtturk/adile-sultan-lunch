@@ -4,20 +4,21 @@ Bruin + two bots for the team's daily lunch order from **Adile Sultan Ev Yemekle
 (`siparis.adilesultanevyemekleri.com`).
 
 Bruin scrapes the menu and owns the tables; two bots (created separately, specced in the `bot*.md`
-files) compose the daily menus, run the Google Form vote, and tally the result.
+files) compose the daily menus, run a **Slack** vote, and tally the result. Voting happens right in
+Slack via emoji reactions — no link, no external form.
 
 ```
-        09:00 scrape                     bot 1: compose + form                bot 2: collect
-┌──────────┐   ┌─────────────┐   ┌─────────────┐   ┌──────────────┐   ┌──────────────────────────┐
-│  menus/  │──▶│ lunch.menus │──▶│ Google Form │   │ lunch.votes  │   │ latest row → responses,  │
-│(scraper) │   │(free opts)  │   │ (per type)  │──▶│ row: link,   │──▶│ tally, summary written   │
-└──────────┘   └─────────────┘   └──────┬──────┘   │ created_at,  │   │ back into the SAME row   │
-                                        │ votes     │ menus        │   └──────────────────────────┘
-                                        ▼           └──────────────┘
-                                   team fills form
+        09:00 scrape                    bot 1: compose + post              bot 2: collect (11:30)
+┌──────────┐   ┌─────────────┐   ┌──────────────┐   ┌──────────────┐   ┌──────────────────────────┐
+│  menus/  │──▶│ lunch.menus │──▶│ Slack poll   │   │ lunch.votes  │   │ latest row → read Slack   │
+│(scraper) │   │(free opts)  │   │ + 1️⃣2️⃣3️⃣    │──▶│ row: channel,│──▶│ reactions → tally/summary │
+└──────────┘   └─────────────┘   │ reactions    │   │ ts, menus    │   │ back into the SAME row    │
+                                 └──────┬───────┘   └──────────────┘   └──────────────────────────┘
+                                        │ team taps a reaction (no link)
+                                        ▼
 ```
 
-The team picks **one complete menu** (bot 1 pre-selects the dishes), not individual options.
+The team picks **one complete menu** (bot 1 pre-selects the dishes) by tapping a reaction in Slack.
 
 ## Pipelines
 
@@ -34,17 +35,19 @@ is server-rendered, so no browser or login is needed. Menus not offered today ar
 ### `votes/` — table owner (schema only)
 **`votes/assets/votes.sql`** runs `CREATE TABLE IF NOT EXISTS lunch.votes (...)` — it just guarantees
 the bot-managed `lunch.votes` table exists with the right schema. It never writes rows (the bots do)
-and is idempotent, so re-running never wipes data. Columns: `created_at`, `menu_date`, `link`,
-`form_id`, `menus` (JSON), `responses` (JSON), `tally` (JSON), `summary`, `updated_at`.
+and is idempotent, so re-running never wipes data. Columns: `created_at`, `menu_date`, `channel_id`,
+`message_ts`, `menus` (JSON), `responses` (JSON), `tally` (JSON), `summary`, `updated_at`.
 
 ## The bots (specs)
-- **`bot1-google-form.md`** — reads `lunch.menus`, **randomly composes one menu per type** (marks the
-  general menu, Chef's Choice, as `default`), creates a Google Form, and INSERTs a `lunch.votes` row
-  with the form `link` + `created_at` + `menus`.
-- **`bot2-collect-responses.md`** — runs **11:30 each morning**: reads the **latest** `lunch.votes`
-  row, fetches that form's responses, writes them back into the **same row**
+- **`bot1-slack-poll.md`** — reads `lunch.menus`, **randomly composes one menu per type** (marks the
+  general menu, Chef's Choice, as `default`), posts a Slack message with a number reaction per menu,
+  and INSERTs a `lunch.votes` row with the Slack `channel_id`/`message_ts` + `created_at` + `menus`.
+- **`bot2-collect-votes.md`** — runs **11:30 each morning**: reads the **latest** `lunch.votes` row,
+  counts the Slack **reactions** on that message, writes them back into the **same row**
   (`responses`/`tally`/`summary`), and posts a menus-and-votes result. If nobody voted, it defaults
   the order to the general menu.
+- **Slack token:** the bots need a bot token (`xoxb-…`) with `chat:write`, `reactions:write`,
+  `reactions:read`, `users:read`, and must be a member of the target channel.
 
 ## Setup
 
@@ -60,7 +63,7 @@ and is idempotent, so re-running never wipes data. Columns: `created_at`, `menu_
      --query "SELECT menu_name, COUNT(option_id) free_opts FROM lunch.menus \
               WHERE menu_date = CURRENT_DATE() AND group_name='Ana Yemek Seçimi' GROUP BY 1"
    ```
-6. **Hook up the bots** using `bot1-google-form.md` and `bot2-collect-responses.md`.
+6. **Hook up the bots** using `bot1-slack-poll.md` and `bot2-collect-votes.md`.
 
 ## Notes
 - Destination: `bigquery://bruin-playground-bensu`, dataset `lunch`.
