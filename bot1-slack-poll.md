@@ -14,16 +14,14 @@ Bot 2 later reads that row (by latest `created_at`) and counts the reactions.
 
 **Capabilities it needs:**
 - BigQuery read + insert (connection `gcp-default`).
-- A Slack **bot token** (`xoxb-…`) with scopes: `chat:write`, `reactions:write`
-  (add the initial number reactions).
+- Slack access to post a message and add reactions — provided by the bot's own Slack integration.
+  You don't manage a token here.
 
 **Config you provide:**
-- `SLACK_BOT_TOKEN` — the `xoxb-…` token.
-- `SLACK_CHANNEL_ID` — the target channel id (e.g. `C0XXXXXXX`).
+- `SLACK_CHANNEL_ID` — the target channel id (e.g. `C0XXXXXXX`). That's it.
 
-With those two, the bot posts **directly** to the channel — no channel lookup or discovery needed,
-just `chat.postMessage({channel: SLACK_CHANNEL_ID, text: ...})`. Invite the bot to that channel once
-(`/invite @your-bot`) so it's allowed to post there.
+With just the channel id, the bot posts **directly** to the channel (no channel lookup, no token to
+set up), then adds the number reactions. Make sure the bot has been added to that channel once.
 
 ---
 
@@ -92,8 +90,8 @@ Example composed set:
 
 ## Step 3 — post the Slack poll
 
-- `chat.postMessage({channel: SLACK_CHANNEL_ID, text: ...})` — posts straight to the configured
-  channel. Body: a title + each menu's `label` on its own line, e.g.:
+- Post straight to the configured channel (`SLACK_CHANNEL_ID`). Body: a title + each menu's `label`
+  on its own line, e.g.:
 
   ```
   🍽️ Öğle Yemeği — 2026-07-09  (bir menüye reaction ile oy verin)

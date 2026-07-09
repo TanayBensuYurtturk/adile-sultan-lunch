@@ -46,8 +46,8 @@ and is idempotent, so re-running never wipes data. Columns: `created_at`, `menu_
   counts the Slack **reactions** on that message, writes them back into the **same row**
   (`responses`/`tally`/`summary`), and posts a menus-and-votes result. If nobody voted, it defaults
   the order to the general menu.
-- **Slack token:** the bots need a bot token (`xoxb-…`) with `chat:write`, `reactions:write`,
-  `reactions:read`, `users:read`, and must be a member of the target channel.
+- **Slack:** the bots reach Slack through their own Slack integration — you don't manage a token.
+  You only provide `SLACK_CHANNEL_ID`, and the bot must be added to that channel once.
 
 ## Setup
 

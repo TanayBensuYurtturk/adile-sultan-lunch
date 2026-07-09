@@ -11,12 +11,12 @@ At **11:30 every morning** (voting closes so the order can be placed before lunc
 It never creates rows — it only updates the row bot 1 created.
 
 **Capabilities it needs:**
-- Slack **bot token** (`xoxb-…`) with scopes: `reactions:read` (read who reacted), `users:read`
-  (map user ids → names), and `chat:write` (post the result). The bot must be in the channel.
+- Slack access to read a message's reactions, resolve user names, and post the result — provided by
+  the bot's own Slack integration. No token to manage here.
 - BigQuery read + update (connection `gcp-default`).
 
-**Config:** it uses the same `SLACK_BOT_TOKEN`, and gets `channel_id` + `message_ts` straight from the
-`lunch.votes` row bot 1 wrote — so it reads reactions and posts the result directly, no lookup needed.
+**Config:** none of its own — it gets `channel_id` + `message_ts` straight from the `lunch.votes` row
+bot 1 wrote, so it reads reactions and posts the result directly, no lookup needed.
 
 ---
 
