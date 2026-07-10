@@ -1,6 +1,6 @@
 name: adile-sultan-menus
-# Runs every morning at 09:00 to snapshot the day's menus before the team votes.
-schedule: "0 9 * * *"
+# Runs every morning at 11:00 to snapshot the day's menus before the team votes.
+schedule: "0 8 * * *"
 start_date: "2026-07-07"
 catchup: false
 
