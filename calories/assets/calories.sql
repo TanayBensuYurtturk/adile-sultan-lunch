@@ -4,18 +4,20 @@ name: lunch.calories
 type: bq.sql
 
 description: |
-  Approximate per-portion calories for each dish (mains and sides) available today, derived from
-  lunch.menus. The ordering site publishes no calorie data, so this is a keyword-based estimate:
-  a protein component + a carb component for composed mains, or a single representative value for
-  legume/veg mains, soups, salads, desserts and drinks. Values are rounded and clearly approximate.
+  Approximate per-portion calories for every dish (mains and sides) ever seen in lunch.menus. The
+  ordering site publishes no calorie data, so this is a keyword-based estimate: a protein component
+  + a carb component for composed mains, or a single representative value for legume/veg mains,
+  soups, salads, desserts and drinks. Values are rounded and clearly approximate.
   Bot 1 reads this table to show ~kcal per composed menu (main + side) — no runtime web lookups.
 
-depends:
-  - lunch.menus
+  This is a deterministic dish-name -> kcal lookup (Bot 1 joins it by dish name only), so it does
+  NOT need to be recomputed daily. It lives in its own on-demand pipeline (adile-sultan-calories),
+  separate from the daily adile-sultan-menus pipeline. Run it once, and re-run only when new dishes
+  start appearing in lunch.menus:  bruin run ./calories
 
 materialization:
   type: table
-  # Full rebuild each run for the current day's dishes.
+  # Full rebuild across the entire historical dish universe on each (manual) run.
   strategy: create+replace
 
 columns:
@@ -40,16 +42,18 @@ columns:
 @bruin */
 
 WITH dishes AS (
-  SELECT DISTINCT option_name AS dish, group_name
+  -- Every distinct dish ever offered (not just today's), so a single run yields a complete lookup.
+  SELECT option_name AS dish, group_name, MAX(menu_date) AS menu_date
   FROM `bruin-playground-bensu.lunch.menus`
-  WHERE menu_date = (SELECT MAX(menu_date) FROM `bruin-playground-bensu.lunch.menus`)
-    AND is_available = TRUE
+  WHERE is_available = TRUE
     AND group_name IN ('Ana Yemek Seçimi', 'Yan Ürün Seçimi')
+  GROUP BY option_name, group_name
 ),
 scored AS (
   SELECT
     dish,
     group_name,
+    menu_date,
     LOWER(dish) AS n,
     -- Protein component (for composed mains like "Dana Kavurma ve Pirinç Pilavı").
     CASE
@@ -88,7 +92,7 @@ scored AS (
   FROM dishes
 )
 SELECT
-  (SELECT MAX(menu_date) FROM `bruin-playground-bensu.lunch.menus`) AS menu_date,
+  menu_date,  -- most recent date this dish was offered
   dish,
   group_name,
   CASE
